@@ -17,8 +17,7 @@ typedef struct audio_config_params
 int setup_capture(snd_pcm_t **capture_handle, audio_config_params *config_params)
 {
 	int ret;
-
-    	if ((ret = snd_pcm_open (capture_handle, config_params->audio_device, SND_PCM_STREAM_CAPTURE, 0)) < 0)
+    	if ((ret = snd_pcm_open(capture_handle, config_params->audio_device, SND_PCM_STREAM_CAPTURE, 0)) < 0)
     	{
         	printf("Error: cannot open audio device %s (%s)\n", config_params->audio_device, snd_strerror (ret));
 		return ret;
@@ -38,8 +37,7 @@ int setup_capture(snd_pcm_t **capture_handle, audio_config_params *config_params
 int setup_playback(snd_pcm_t **playback_handle, audio_config_params *config_params)
 {
 	int ret;
-
-    	if ((ret = snd_pcm_open (playback_handle, config_params->audio_device, SND_PCM_STREAM_PLAYBACK, 0)) < 0)
+    	if ((ret = snd_pcm_open(playback_handle, config_params->audio_device, SND_PCM_STREAM_PLAYBACK, 0)) < 0)
     	{
         	printf("Error: cannot open audio device %s (%s)\n", config_params->audio_device, snd_strerror (ret));
 		return ret;
@@ -96,7 +94,6 @@ int capture_playback_audio(snd_pcm_t *capture_handle, snd_pcm_t *playback_handle
 	return 0;
 }
 
-
 int main (int argc, char *argv[])
 {
     	int err;
@@ -126,18 +123,26 @@ int main (int argc, char *argv[])
 	config_params->format = SND_PCM_FORMAT_S16_LE;
 	config_params->audio_device = device;
 	
-
 	// Setup capture device for MIC
-   	setup_capture(&capture_handle, config_params);
+   	if(setup_capture(&capture_handle, config_params) < 0)
+	{
+   		close_playback(playback_handle);
+		exit(1);
+	}
 
 	// Setup playback device for Speaker
-	setup_playback(&playback_handle, config_params); 
+	if(setup_playback(&playback_handle, config_params) < 0)
+	{
+   		close_playback(playback_handle);
+		close_capture(capture_handle);
+		exit(1);
+	}
     	
 	// For debugging
 	snd_pcm_dump(playback_handle, output);
 
 	// Capture data from MIC and playback on Speaker
-	capture_playback_audio(capture_handle, playback_handle, config_params);
+	if(capture_playback_audio(capture_handle, playback_handle, config_params) < 0) exit(1); 
 
 	// Close capture device handle
    	close_playback(playback_handle);
