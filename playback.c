@@ -80,14 +80,14 @@ int capture_playback_audio(snd_pcm_t *capture_handle, snd_pcm_t *playback_handle
         	if (err != buf_frames)
 		{
             		fprintf (stderr, "read from audio interface failed (%s)\n", snd_strerror (err));
-	    		return -1;
+			snd_pcm_prepare(capture_handle);
 		}
         
 		err = snd_pcm_writei (playback_handle, buf, buf_frames);
         	if (err != buf_frames)
 		{
             		fprintf (stderr, "write to audio interface failed (%s)\n", snd_strerror (err));
-	    		return -1;
+			snd_pcm_prepare(playback_handle);
 		}
     	}
 	
