@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <alsa/asoundlib.h>
+#include <speex/speex_echo.h>
       
 #define BUF_BYTES 2048
 
@@ -12,7 +13,6 @@ typedef struct audio_config_params
     	snd_pcm_format_t format;
 	char *audio_device;
 }audio_config_params;
-
 
 int setup_capture(snd_pcm_t **capture_handle, audio_config_params *config_params)
 {
@@ -71,24 +71,30 @@ void close_playback(snd_pcm_t *playback_handle)
 int capture_playback_audio(snd_pcm_t *capture_handle, snd_pcm_t *playback_handle, audio_config_params *config_params)
 {
     	int err;
-    	unsigned char buf[BUF_BYTES];
-	uint32_t buf_frames = (BUF_BYTES / (config_params->channels * 2)) ;
+	short echo_frame[BUF_BYTES] = {0};
+	short input_frame[BUF_BYTES] = {0};
+	short output_frame[BUF_BYTES] = {0};
+	uint32_t buf_frames = (BUF_BYTES / (config_params->channels * 2));
+	SpeexEchoState *echo_state = speex_echo_state_init(buf_frames, buf_frames);
     	
 	while(1)
     	{
-        	err = snd_pcm_readi (capture_handle, buf, buf_frames);
+		err = snd_pcm_writei (playback_handle, echo_frame, buf_frames);
         	if (err != buf_frames)
 		{
-            		fprintf (stderr, "read from audio interface failed (%s)\n", snd_strerror (err));
-			snd_pcm_prepare(capture_handle);
-		}
-        
-		err = snd_pcm_writei (playback_handle, buf, buf_frames);
-        	if (err != buf_frames)
-		{
-            		fprintf (stderr, "write to audio interface failed (%s)\n", snd_strerror (err));
+			fprintf (stderr, "write to audio interface failed (%s)\n", snd_strerror (err));
 			snd_pcm_prepare(playback_handle);
 		}
+
+		err = snd_pcm_readi (capture_handle, input_frame, buf_frames);
+        	if (err != buf_frames)
+		{
+			fprintf (stderr, "read from audio interface failed (%s)\n", snd_strerror (err));
+			snd_pcm_prepare(capture_handle);
+		}
+	
+		speex_echo_cancellation(echo_state, input_frame, echo_frame, output_frame);
+		memcpy(echo_frame, output_frame, (buf_frames)*sizeof(short));
     	}
 	
 	return 0;
@@ -97,7 +103,6 @@ int capture_playback_audio(snd_pcm_t *capture_handle, snd_pcm_t *playback_handle
 int main (int argc, char *argv[])
 {
     	int err;
-    	unsigned char buf[BUF_BYTES];
     
     	char* device = "default";
     	if (argc > 1) device = argv[1];
@@ -119,10 +124,10 @@ int main (int argc, char *argv[])
 	}
     
 	config_params->rate = 44100;
-	config_params->channels = 2;
+	config_params->channels = 1;
 	config_params->format = SND_PCM_FORMAT_S16_LE;
 	config_params->audio_device = device;
-	
+
 	// Setup capture device for MIC
    	if(setup_capture(&capture_handle, config_params) < 0)
 	{

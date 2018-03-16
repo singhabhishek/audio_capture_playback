@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g
-LIB=-lasound
+LIB=-lasound -lspeexdsp
 SRC=playback.c
 EXEC=playback
 
